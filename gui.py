@@ -1,15 +1,21 @@
 import sys
-from tkinter import INSERT, Text, Tk, ttk, filedialog, StringVar
+import threading
+from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
 import YoutubeMusicDownloader as ytdl
 
+#TODO: rework toggle_buttons method
+# add progress bar
+
 class App(ttk.Frame):
     def __init__(self, parent, *args, **kwargs) -> None:
         ttk.Frame.__init__(self, parent, *args, **kwargs)
+        self.root = parent
         self.downloader = ytdl.YoutubeMusicDownloader()
         self.is_downloading = False
-        self.cancel_id = None
+        self.process = False
+        self.event = threading.Event()
         
         self.output_path_var = StringVar(self, value=ytdl.DEFAULT_DOWNLOAD_PATH)
         self.format_var = StringVar(self, value=ytdl.DEFAULT_FORMAT)
@@ -34,10 +40,10 @@ class App(ttk.Frame):
         self.types_label = ttk.Label(self, text='resource type')
         self.types_label.grid()
 
-        self.download_button = ttk.Button(self, text='download', command=self.download)
+        self.download_button = ttk.Button(self, text='download', command=self.do_tasks)
         self.download_button.grid(column=0, row = 3)
         
-        self.stop_button = ttk.Button(self, text='stop', command=exit)
+        self.stop_button = ttk.Button(self, text='stop', command=self.stop)
         self.stop_button.grid(column=0, row=3)
         self.stop_button.grid_remove()
 
@@ -51,7 +57,6 @@ class App(ttk.Frame):
         self.output.insert(INSERT, input)
 
     def __toggle_buttons(self):
-        self.is_downloading = not self.is_downloading
         if self.is_downloading:
             self.download_button.grid_remove()
             self.stop_button.grid()
@@ -59,29 +64,47 @@ class App(ttk.Frame):
             self.stop_button.grid_remove()
             self.download_button.grid()
         
-    def download(self):
-        self.cancel_id = None
+    def download(self, event: threading.Event):
+        '''overriding due to thread, had to load audio individually without YoutubeMusicDownloader download method'''
+        self.is_downloading = True
+        self.output.delete(1.0, END)
         self.__toggle_buttons()
         self.get_values()
-        self.cancel_id = self.output.after(500, self.downloader.download(self.resource_var.get()))
-        self.downloader.download(self.resource_var.get())
-        showinfo(message='Download complete!')
+        l = self.downloader.get_list(self.resource_var.get())
+        for url in l:
+            if event.is_set():
+                break
+            self.downloader.download_one(url)
+
+        self.is_downloading = False
+        self.__toggle_buttons()
+        self.event.clear()
+        #showinfo(message='Download complete!')
 
     def stop(self):
+        self.event.set()
+        # self.process.join()
+        # self.process = None
+        self.is_downloading = False
         self.__toggle_buttons()
-        self.output.after_cancel(self.cancel_id)
-        self.cancel_id = None
-        #exit('Stoping right there')
 
     def get_values(self):
         self.downloader.output_path = self.output_path_var.get()
         self.downloader.format = self.format_var.get()
         self.downloader.type = self.types_var.get()
-        print(self.downloader.format, self.downloader.output_path)
 
     def browse_files(self):
         filedialog.askdirectory
+    
+    def refresh(self):
+        self.root.update()
+        self.root.after(1000,self.refresh)
 
+    def do_tasks(self):
+        self.refresh()
+        self.downloader.is_interrupted = False
+        self.process = threading.Thread(target=self.download, args=(self.event,))
+        self.process.start()
 
 if __name__ == '__main__':
     root = Tk()

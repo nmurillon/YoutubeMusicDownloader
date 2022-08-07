@@ -34,33 +34,19 @@ class YoutubeMusicDownloader:
 
     def download_one(self, url: str) -> None:
         '''Download an audio from Youtube video'''
-        yt = YouTube(url, on_progress_callback=on_progress, on_complete_callback=self.on_download_complete)
-        audio = yt.streams.get_audio_only(self.format)
-        if not audio:
-            raise ValueError(f'\033[1;31m{self.format} is not a supported format \033[0m')
+        try:
+            yt = YouTube(url, on_progress_callback=on_progress, on_complete_callback=self.on_download_complete)
+            audio = yt.streams.get_audio_only(self.format)
+            if not audio:
+                print(f'\033[1;31m{self.format} is not a supported format \033[0m')
+        except Exception as e:
+            print(f'The link provided is not a youtube video')
 
         print(f'Downloading {audio.title}...')
         audio.download(self.output_path)
-
-    # def download_from_playlist(self, playlist_link: str) -> None:
-    #     playlist = Playlist(playlist_link)
-    #     try:
-    #         for url in playlist.video_urls:
-    #             self.download_one(url)
-    #     except Exception as e:
-    #         print(e) 
-
-    # def download_from_file(self, filepath: str):
-    #     with open(filepath, 'r') as file:
-    #         try:
-    #             for url in file.readlines():
-    #                 self.download_one(url)
-    #         except Exception as e:
-    #             print(e) 
     
     def download(self, link: str):
         '''used with cli'''
-        self.is_interrupted=False
         if not isdir(self.output_path):
             os.mkdir(self.output_path)
         print(f'Going to save the audio in {self.output_path}')

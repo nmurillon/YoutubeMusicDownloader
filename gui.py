@@ -1,5 +1,5 @@
 import sys
-from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar
+from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar, LabelFrame
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
 import YoutubeMusicDownloader as ytdl
@@ -11,58 +11,83 @@ class App(ttk.Frame):
     def __init__(self, parent: Tk, *args, **kwargs) -> None:
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.root = parent
-        self.downloader = ytdl.YoutubeMusicDownloader()
+        self.downloader = ytdl.YoutubeMusicDownloader(hide_progress_bar=True)
         self.is_downloading = False
         self.process = False
         self.is_interrupted = False
         
-        self.output_path_var = StringVar(self, value=ytdl.DEFAULT_DOWNLOAD_PATH)
+        ################################
+        # Output panel
         self.format_var = StringVar(self, value=ytdl.DEFAULT_FORMAT)
-        self.resource_var = StringVar(self)
+        self.resource_var = StringVar(self, value=ytdl.YOUTUBE_EXAMPLE)
         
-        self.output_path_entry = ttk.Entry(self, textvariable=self.output_path_var, width=50)
-        self.output_path_entry.grid(column=0, row=1)
-        self.output_path_entry_label = ttk.Label(self, text='output folder')
-        self.output_path_entry_label.grid(column=1, row=1)
+        self.output_frame = LabelFrame(self, text='Output information', padx=10, pady=10)
+        self.output_frame.grid(column=0, row=0)
 
-        self.resource_entry = ttk.Entry(self, textvariable=self.resource_var, width=50)
-        self.resource_entry.grid(column=2, row=1)
+        self.output_path_var = StringVar(self.output_frame, value=ytdl.DEFAULT_DOWNLOAD_PATH)
+        self.output_path_entry = ttk.Entry(self.output_frame, textvariable=self.output_path_var, width=50)
+        self.output_path_entry.grid(column=0, row=0)
 
-        self.format_entry = ttk.Entry(self, textvariable=self.format_var)
-        self.format_entry.grid(column=0, row=2)
-        self.format_label = ttk.Label(self, text='audio format')
+        self.output_path_button = ttk.Button(self.output_frame, text='browse', command=lambda: self.__set_path(self.output_path_var))
+        self.output_path_button.grid(column=1, row=0, padx=5)
+
+        self.format_entry = ttk.Entry(self.output_frame, textvariable=self.format_var, width=50)
+        self.format_entry.grid(column=0, row=1)
+        self.format_label = ttk.Label(self.output_frame, text='audio format')
         self.format_label.grid(column=1, row=1)
 
-        self.types_var = StringVar(self, value=ytdl.DEFAULT_TYPE)
-        self.types = ttk.Combobox(self, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var)
-        self.types.grid(column=0, row=5)
-        self.types_label = ttk.Label(self, text='resource type')
-        self.types_label.grid()
+        ################################
+        # Resource panel (link type)
+        self.resource_frame = LabelFrame(self, text='Resource Link', padx=10, pady=10)
+        self.resource_frame.grid(column=2, row=0)
 
+        self.resource_entry = ttk.Entry(self.resource_frame, textvariable=self.resource_var, width=50)
+        self.resource_entry.grid(column=0, row=1)
+
+        self.resource_entry_button = ttk.Button(self.resource_frame, text='browse', command=lambda: self.__set_path(self.resource_var))
+        self.resource_entry_button.grid(column=1, row=1, padx=5)
+
+        self.types_var = StringVar(self.resource_frame, value=ytdl.DEFAULT_TYPE, width=50)
+        self.types = ttk.Combobox(self.resource_frame, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var)
+        self.types.grid(column=0, row=2)
+
+        self.types_label = ttk.Label(self.resource_frame, text='resource type')
+        self.types_label.grid(column=1, row=2)
+
+        ################################
+        # Donwload/Stop buttons
         self.download_button = ttk.Button(self, text='download', command=self.start_download)
-        self.download_button.grid(column=0, row = 3)
+        self.download_button.grid(column=1, row =3, pady=20)
         
         self.stop_button = ttk.Button(self, text='stop', command=self.stop)
-        self.stop_button.grid(column=0, row=3)
+        self.stop_button.grid(column=1, row=3, pady=20)
         self.stop_button.grid_remove()
 
-        self.output = Text(self)
-        self.output.grid(column=0, row = 7, columnspan=3)
+        ################################
+        # Console output
+        self.output = Text(self)#, width=int(0.75*self.winfo_width()))
+        self.output.grid(column=0, row = 7, columnspan=5)
         sys.stdout.write = self.__redirector
 
         self.progress_bar = ttk.Progressbar(
             self,
             orient='horizontal',
             mode='determinate',
-            length=280
+            length=280,
         )
-        self.progress_bar.grid(column=0, row=6)
+        self.progress_bar.grid(column=0, row=6, columnspan=5)
         self.progress_bar.grid_remove()
         self.progress_label = ttk.Label(self)
         self.progress_label.grid(column=1, row=6)
         self.progress_label.grid_remove()
 
         self.grid()
+
+    def __browse_files(self):
+        return filedialog.askdirectory(initialdir=ytdl.DOCUMENT_PATH)
+
+    def __set_path(self, var: StringVar):
+        var.set(self.__browse_files())
 
     def __update_progress_label(self):
         return f"Current Progress: {self.progress_bar['value']}%"
@@ -91,8 +116,6 @@ class App(ttk.Frame):
         self.download(urls, 0, len(urls))
         
     def download(self, urls, current, limit):
-        '''overriding due to thread, had to load audio individually without YoutubeMusicDownloader download method'''
-        
         if not self.is_interrupted and current < limit:
             self.root.update()
             self.downloader.download_one(urls[current])
@@ -105,7 +128,6 @@ class App(ttk.Frame):
             self.is_interrupted = False
             self.__toggle_buttons()
 
-
     def stop(self):
         self.is_interrupted = True
         self.is_downloading = False
@@ -116,12 +138,11 @@ class App(ttk.Frame):
         self.downloader.format = self.format_var.get()
         self.downloader.type = self.types_var.get()
 
-    def browse_files(self):
-        filedialog.askdirectory
-
 if __name__ == '__main__':
     root = Tk()
     root.title("Youtube MP3 Downloader")
     root.geometry('1080x720')
-    App(root, padding=10)
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
+    App(root, padding=10, width=root.winfo_width())
     root.mainloop()

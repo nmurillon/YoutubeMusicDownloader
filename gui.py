@@ -47,8 +47,8 @@ class App(ttk.Frame):
         self.resource_entry_button = ttk.Button(self.resource_frame, text='browse', command=lambda: self.__set_path(self.resource_var))
         self.resource_entry_button.grid(column=1, row=1, padx=5)
 
-        self.types_var = StringVar(self.resource_frame, value=ytdl.DEFAULT_TYPE, width=50)
-        self.types = ttk.Combobox(self.resource_frame, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var)
+        self.types_var = StringVar(self.resource_frame, value=ytdl.DEFAULT_TYPE)
+        self.types = ttk.Combobox(self.resource_frame, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var, width=47)
         self.types.grid(column=0, row=2)
 
         self.types_label = ttk.Label(self.resource_frame, text='resource type')

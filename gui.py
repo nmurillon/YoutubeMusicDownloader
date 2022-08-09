@@ -1,4 +1,6 @@
+from genericpath import isdir
 import sys
+import os
 import re
 from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar, LabelFrame
 from tkinter import filedialog
@@ -50,7 +52,7 @@ class App(ttk.Frame):
         self.resource_entry_button.grid(column=1, row=1, padx=5)
 
         self.types_var = StringVar(self.resource_frame, value=ytdl.DEFAULT_TYPE)
-        self.types = ttk.Combobox(self.resource_frame, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var, width=47)
+        self.types = ttk.Combobox(self.resource_frame, values=ytdl.ALLOWED_TYPES, textvariable=self.types_var, width=47, state='readonly')
         self.types.grid(column=0, row=2)
 
         self.types_label = ttk.Label(self.resource_frame, text='resource type')
@@ -67,21 +69,28 @@ class App(ttk.Frame):
 
         ################################
         # Console output
-        self.output = Text(self)#, width=int(0.75*self.winfo_width()))
-        self.output.grid(column=0, row = 7, columnspan=5)
-        sys.stdout.write = self.__redirector
+        self.console_frame = LabelFrame(self, border=0.0)
+        self.console_frame.grid(column=0, row=4, columnspan=3)
 
         self.progress_bar = ttk.Progressbar(
-            self,
+            self.console_frame,
             orient='horizontal',
             mode='determinate',
-            length=280,
+            length=655,
         )
-        self.progress_bar.grid(column=1, row=6, columnspan=5)
+        self.progress_bar.grid(column=0, row=1, columnspan=3)
         self.progress_bar.grid_remove()
-        self.progress_label = ttk.Label(self)
-        self.progress_label.grid(column=0, row=6)
+        self.progress_label = ttk.Label(self.console_frame)
+        self.progress_label.grid(column=0, row=0)
         self.progress_label.grid_remove()
+
+        self.output = Text(self.console_frame)
+        self.output.grid(column=0, row = 2)
+        sys.stdout.write = self.__redirector
+
+        self.scroll_bar = ttk.Scrollbar(self.console_frame, command=self.output.yview)
+        self.scroll_bar.grid(row=2, column=1, sticky='nsew')
+        self.output['yscrollcommand'] = self.scroll_bar.set
 
         self.grid()
 
@@ -95,7 +104,6 @@ class App(ttk.Frame):
         return f"Current Progress: {self.progress_bar['value']}%"
 
     def __redirector(self, input: str):
-        # TODO: try to output with color
         if input != '\n':
             self.line_count += 1
         m = re.match('\t?\033\[1;3(1|2)m.*\033\[0m', input)
@@ -124,12 +132,15 @@ class App(ttk.Frame):
     def start_download(self):
         self.is_downloading = True
         self.is_interrupted = False
+        self.output['state'] = 'normal'
         self.progress_bar.grid()
         self.progress_label.grid()
         self.progress_bar['value'] = 0.0
         self.output.delete(1.0, END)
         self.line_count = 0
         self.__toggle_buttons()
+        if not isdir(self.output_path_var.get()):
+            os.mkdir(self.output_path_var.get())
         self.get_values()
         urls = self.downloader.get_list(self.resource_var.get())
         self.download(urls, 0, len(urls))
@@ -145,6 +156,7 @@ class App(ttk.Frame):
         else:
             self.is_downloading = False
             self.is_interrupted = False
+            self.output['state'] = 'disabled'
             self.__toggle_buttons()
 
     def stop(self):

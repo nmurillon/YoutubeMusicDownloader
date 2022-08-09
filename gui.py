@@ -1,4 +1,5 @@
 import sys
+import re
 from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar, LabelFrame
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
@@ -11,6 +12,7 @@ class App(ttk.Frame):
     def __init__(self, parent: Tk, *args, **kwargs) -> None:
         ttk.Frame.__init__(self, parent, *args, **kwargs)
         self.root = parent
+        self.line_count = 0
         self.downloader = ytdl.YoutubeMusicDownloader(hide_progress_bar=True)
         self.is_downloading = False
         self.process = False
@@ -75,10 +77,10 @@ class App(ttk.Frame):
             mode='determinate',
             length=280,
         )
-        self.progress_bar.grid(column=0, row=6, columnspan=5)
+        self.progress_bar.grid(column=1, row=6, columnspan=5)
         self.progress_bar.grid_remove()
         self.progress_label = ttk.Label(self)
-        self.progress_label.grid(column=1, row=6)
+        self.progress_label.grid(column=0, row=6)
         self.progress_label.grid_remove()
 
         self.grid()
@@ -92,8 +94,24 @@ class App(ttk.Frame):
     def __update_progress_label(self):
         return f"Current Progress: {self.progress_bar['value']}%"
 
-    def __redirector(self, input):
-        self.output.insert(INSERT, input)
+    def __redirector(self, input: str):
+        # TODO: try to output with color
+        if input != '\n':
+            self.line_count += 1
+        m = re.match('\t?\033\[1;3(1|2)m.*\033\[0m', input)
+        if m is not None:
+            if m[1] == '1':
+                s = input.replace('\033[1;31m', '').replace('\033[0m', '')
+                self.output.insert(INSERT, s)
+                self.output.tag_add('error', f'{float(self.line_count)}', f'{self.line_count}.{len(s)}')
+                self.output.tag_configure('error', foreground="red")
+            else:
+                s = input.replace('\t\033[1;32m', '').replace('\033[0m\t', '')
+                self.output.insert(INSERT, s)
+                self.output.tag_add('success', f'{float(self.line_count)}', f'{self.line_count}.{len(s)}')
+                self.output.tag_configure('success', foreground="green")
+        else:
+            self.output.insert(INSERT, input)
 
     def __toggle_buttons(self):
         if self.is_downloading:
@@ -110,6 +128,7 @@ class App(ttk.Frame):
         self.progress_label.grid()
         self.progress_bar['value'] = 0.0
         self.output.delete(1.0, END)
+        self.line_count = 0
         self.__toggle_buttons()
         self.get_values()
         urls = self.downloader.get_list(self.resource_var.get())

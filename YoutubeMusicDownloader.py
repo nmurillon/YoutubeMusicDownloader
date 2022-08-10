@@ -1,6 +1,4 @@
 from genericpath import isdir
-import shutil
-import sys
 import os
 from pytube import YouTube, Playlist, Stream
 from pytube.cli import on_progress

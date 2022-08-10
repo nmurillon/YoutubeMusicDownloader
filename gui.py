@@ -4,7 +4,7 @@ import os
 import re
 from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar, LabelFrame
 from tkinter import filedialog
-from tkinter.messagebox import showerror, showinfo
+from tkinter.messagebox import showerror
 import YoutubeMusicDownloader as ytdl
 
 #TODO: when cancelling download, ask if user wants to keep going from where he stopped

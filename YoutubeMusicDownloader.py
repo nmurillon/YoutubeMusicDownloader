@@ -33,10 +33,12 @@ class YoutubeMusicDownloader:
         self.hide_progress_bar = hide_progress_bar
 
     def on_progress(self, stream: Stream, chunk: bytes, bytes_remaining: int):
+        '''Display a progress bar if self.hide_progress_bar is False'''
         if not self.hide_progress_bar:
             on_progress(stream, chunk, bytes_remaining)
         
     def on_download_complete(self, _stream: Stream, _filepath: str):
+        '''Display a message to tell the download of an audio is complete'''
         print('\t\033[1;32mDownload complete\033[0m\t')
 
     def download_one(self, url: str) -> None:
@@ -45,13 +47,13 @@ class YoutubeMusicDownloader:
             yt = YouTube(url, on_progress_callback=self.on_progress, on_complete_callback=self.on_download_complete)
             audio = yt.streams.get_audio_only(self.format)
             if not audio:
-                print(f'\033[1;31m{self.format} is not a supported format \033[0m')
+                print(f"\033[1;31m{self.format} is not a supported format for '{url}'\033[0m")
                 return
             
             print(f'Downloading {audio.title}...')
             audio.download(self.output_path)
         except Exception:
-            print(f'\033[1;31mThe link provided is not a youtube video\033[0m')
+            print(f'\033[1;31mThe link provided ({url}) is not a youtube video\033[0m')
 
     def download(self, link: str):
         '''used with cli'''
@@ -64,24 +66,27 @@ class YoutubeMusicDownloader:
             self.download_one(url)
     
     def get_list_from_one(self, link):
+        '''Return an array containing the given link'''
         return [link]
 
     def get_list_from_playlist(self, link):
+        '''Return an array containing all the video urls from a playlist'''
         try:
             playlist = Playlist(link)
             return playlist.video_urls
-        except Exception as e:
-            print(f'\033[1;31mThe link you provided is not a youtube playlist !\033[0m')
+        except Exception:
+            print(f'\033[1;31mThe link you provided ({link}) is not a youtube playlist !\033[0m')
             return []
 
     def get_list_from_file(self, filepath):
+        '''Return an array of urls contained in the given file'''
         try:
             with open(filepath, 'r') as file:
                 return file.readlines()
         except FileNotFoundError:
-            print('\033[1;31mThe file does not exist !\033[0m')
+            print(f'\033[1;31mThe file {filepath} does not exist !\033[0m')
             return []
 
     def get_list(self, link):
-        '''use for gui'''
+        '''Return the array of video urls depending on the resource type (file, playlist or video)'''
         return self.ALLOWED_TYPE.get(self.type, lambda _link: [])(link)

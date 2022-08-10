@@ -4,11 +4,11 @@ import os
 import re
 from tkinter import END, INSERT, Text, Tk, ttk, filedialog, StringVar, LabelFrame
 from tkinter import filedialog
-from tkinter.messagebox import showinfo
+from tkinter.messagebox import showerror, showinfo
 import YoutubeMusicDownloader as ytdl
 
-#TODO: rework toggle_buttons method
-# add progress bar
+#TODO: when cancelling download, ask if user wants to keep going from where he stopped
+# But if something changed in between (resource link), just proceed to a new download
 
 class App(ttk.Frame):
     def __init__(self, parent: Tk, *args, **kwargs) -> None:
@@ -18,7 +18,6 @@ class App(ttk.Frame):
         self.downloader = ytdl.YoutubeMusicDownloader(hide_progress_bar=True)
         self.is_downloading = False
         self.process = False
-        self.is_interrupted = False
         
         ################################
         # Output panel
@@ -59,13 +58,10 @@ class App(ttk.Frame):
         self.types_label.grid(column=1, row=2)
 
         ################################
-        # Donwload/Stop buttons
-        self.download_button = ttk.Button(self, text='download', command=self.start_download)
-        self.download_button.grid(column=1, row =3, pady=20)
-        
-        self.stop_button = ttk.Button(self, text='stop', command=self.stop)
-        self.stop_button.grid(column=1, row=3, pady=20)
-        self.stop_button.grid_remove()
+        # Donwload/Stop button
+        self.action_button_text_var = StringVar(self, value='download')
+        self.action_button = ttk.Button(self, textvariable=self.action_button_text_var, command=self.action)
+        self.action_button.grid(column=1, row=3, pady=20)
 
         ################################
         # Console output
@@ -104,49 +100,72 @@ class App(ttk.Frame):
         return f"Current Progress: {self.progress_bar['value']}%"
 
     def __redirector(self, input: str):
+        '''Redirect stdout to TextBox'''
         if input != '\n':
             self.line_count += 1
-        m = re.match('\t?\033\[1;3(1|2)m.*\033\[0m', input)
+        m = re.match('(\s*\033\[1;3([12])m).*(\033\[0m)\s*', input)
         if m is not None:
-            if m[1] == '1':
-                s = input.replace('\033[1;31m', '').replace('\033[0m', '')
-                self.output.insert(INSERT, s)
-                self.output.tag_add('error', f'{float(self.line_count)}', f'{self.line_count}.{len(s)}')
-                self.output.tag_configure('error', foreground="red")
+            s = input.replace(m[1], '').replace(m[3], '')
+            if m[2] == '1':
+                tag_name = 'error'
+                foreground = 'red'
             else:
-                s = input.replace('\t\033[1;32m', '').replace('\033[0m\t', '')
-                self.output.insert(INSERT, s)
-                self.output.tag_add('success', f'{float(self.line_count)}', f'{self.line_count}.{len(s)}')
-                self.output.tag_configure('success', foreground="green")
+                tag_name = 'success'
+                foreground = 'green'
+            self.__color_text(s, tag_name, foreground)
         else:
             self.output.insert(INSERT, input)
 
-    def __toggle_buttons(self):
-        if self.is_downloading:
-            self.download_button.grid_remove()
-            self.stop_button.grid()
-        else:
-            self.stop_button.grid_remove()
-            self.download_button.grid()
-        
-    def start_download(self):
-        self.is_downloading = True
-        self.is_interrupted = False
-        self.output['state'] = 'normal'
+    def __color_text(self, text, tag, color):
+        '''Add a tag to color the text'''
+        self.output.insert(INSERT, text)
+        self.output.tag_add(tag, f'{float(self.line_count)}', f'{self.line_count}.{len(text)}')
+        self.output.tag_configure(tag, foreground=color)
+    
+    def __check_output_dir(self, dirpath):
+        '''Create the dir if it does not exist'''
+        if not isdir(dirpath):
+            os.mkdir(dirpath)
+
+    def __reset_progress_bar(self):
+        '''Display the progress bar if it was hidden and reset it's value'''
         self.progress_bar.grid()
         self.progress_label.grid()
         self.progress_bar['value'] = 0.0
+        self.progress_label['text'] = self.__update_progress_label()
+
+    def __reset_console_output(self):
+        '''Reset the text in the '''
+        self.output['state'] = 'normal'
         self.output.delete(1.0, END)
         self.line_count = 0
-        self.__toggle_buttons()
-        if not isdir(self.output_path_var.get()):
-            os.mkdir(self.output_path_var.get())
-        self.get_values()
-        urls = self.downloader.get_list(self.resource_var.get())
-        self.download(urls, 0, len(urls))
+
+    def __toggle_action_button_label(self):
+        '''Switch between download and cancel button'''
+        self.action_button_text_var.set('cancel' if self.is_downloading else 'download')
+
+    def action(self):
+        '''Download audio or cancel a download'''
+        if self.action_button_text_var.get() == 'download':
+            self.start_download()
+        else:
+            self.stop()
+        
+    def start_download(self):
+        '''start the download of the resource(s)'''
+        if self.check_resource_value():
+            self.is_downloading = True
+            self.__reset_console_output()
+            self.__reset_progress_bar()
+            self.__toggle_action_button_label()
+            self.__check_output_dir(self.output_path_var.get())
+            self.get_values()
+            urls = self.downloader.get_list(self.resource_var.get())
+            self.download(urls, 0, len(urls))
         
     def download(self, urls, current, limit):
-        if not self.is_interrupted and current < limit:
+        '''Download audios'''
+        if self.is_downloading and current < limit:
             self.root.update()
             self.downloader.download_one(urls[current])
             self.root.after(1000, lambda: self.download(urls, current + 1, limit))
@@ -155,19 +174,32 @@ class App(ttk.Frame):
             self.progress_label['text'] = self.__update_progress_label()
         else:
             self.is_downloading = False
-            self.is_interrupted = False
             self.output['state'] = 'disabled'
-            self.__toggle_buttons()
+            self.__toggle_action_button_label()
 
     def stop(self):
-        self.is_interrupted = True
         self.is_downloading = False
-        self.__toggle_buttons()
+        self.__toggle_action_button_label()
+        self.line_count += 1
+        self.__color_text('Cancelling download...', 'cancel', 'orange')
 
     def get_values(self):
         self.downloader.output_path = self.output_path_var.get()
         self.downloader.format = self.format_var.get()
         self.downloader.type = self.types_var.get()
+  
+    def check_resource_value(self):
+        resource = self.resource_var.get()
+        if not resource:
+            self.is_downloading = False
+            showerror('Resource link error', 'The link to the resource can not be empty !')
+            return False
+        return True
+        # elif self.types_var.get() in ['direct_link', 'playlist']:
+        #     try:
+        #         resource.index('youtube')
+        #     except ValueError:
+        #         showerror('Resource link error', 'The link to the resource must refer to a youtube resource !')
 
 if __name__ == '__main__':
     root = Tk()

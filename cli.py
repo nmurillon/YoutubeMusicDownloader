@@ -7,6 +7,7 @@
 import optparse
 import YoutubeMusicDownloader as ytdl
 
+# TODO: add possibility to dl from multiple inputs ?
 def parse_options() -> tuple:
     parser = optparse.OptionParser()
     parser.add_option('-f', '--format', dest='format', help='audio format', default=ytdl.DEFAULT_FORMAT)

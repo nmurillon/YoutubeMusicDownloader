@@ -58,7 +58,7 @@ class YoutubeMusicDownloader:
     def download(self, link: str):
         '''used with cli'''
         if not isdir(self.output_path):
-            os.mkdir(self.output_path)
+            os.makedirs(self.output_path)
         print(f'Going to save the audio in {self.output_path}')
         
         l = self.get_list(link)

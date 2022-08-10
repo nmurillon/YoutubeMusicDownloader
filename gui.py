@@ -125,7 +125,7 @@ class App(ttk.Frame):
     def __check_output_dir(self, dirpath):
         '''Create the dir if it does not exist'''
         if not isdir(dirpath):
-            os.mkdir(dirpath)
+            os.makedirs(dirpath)
 
     def __reset_progress_bar(self):
         '''Display the progress bar if it was hidden and reset it's value'''
